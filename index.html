@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini week</title>
+<style>
+:root{--bg:#fff;--fg:#37352f;--mut:#9b9a97;--line:#ebebea;--acc:#e16259;--hl:#fdf0ef;--fld:#f1f1ef;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#191919;--fg:#e6e6e4;--mut:#7f7f7d;--line:#2f2f2f;--acc:#f0857d;--hl:#2a1f1e;--fld:#2b2b2b}}
+:root[data-theme="dark"]{--bg:#191919;--fg:#e6e6e4;--mut:#7f7f7d;--line:#2f2f2f;--acc:#f0857d;--hl:#2a1f1e;--fld:#2b2b2b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+.w{max-width:100%;padding:6px 8px}
+.h{display:flex;align-items:center;justify-content:space-between;padding:0 2px 5px;font-weight:600;font-size:12px}
+button{all:unset;cursor:pointer}
+.h button{color:var(--mut);padding:0 6px;font-size:15px}
+.h button:hover{color:var(--fg)}
+.r{display:grid;grid-template-columns:34px 22px 1fr 18px;gap:6px;padding:4px 6px;border-top:1px solid var(--line)}
+.r.t{background:var(--hl);border-radius:6px;border-top-color:transparent}
+.d{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding-top:1px}
+.n{font-weight:600;text-align:right}
+.r.t .d,.r.t .n{color:var(--acc)}
+.r.e .d,.r.e .n{color:var(--mut);font-weight:400}
+.ev{display:flex;flex-direction:column;gap:2px;min-width:0}
+.it{display:flex;gap:6px;align-items:center;min-width:0;font-size:12px}
+.it .tm{color:var(--mut);flex:none;font-variant-numeric:tabular-nums;cursor:pointer}
+.it .k{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;flex:1}
+.it .k:hover{text-decoration:underline}
+.it .x{color:var(--mut);opacity:0;padding:0 2px}
+.it:hover .x{opacity:1}
+.none{color:var(--mut);font-size:12px;opacity:.5}
+.plus{color:var(--mut);text-align:center;font-size:14px;opacity:.4;line-height:1}
+.r:hover .plus{opacity:1}
+.f{display:flex;gap:4px;margin-top:2px}
+.f input{all:unset;background:var(--fld);border-radius:4px;padding:2px 5px;font-size:12px;color:var(--fg);min-width:0}
+.f input[type=time]{width:58px;flex:none;color-scheme:light dark}
+.f input[type=text]{flex:1}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="h"><button id="p" aria-label="Previous week">‹</button><span id="t"></span><button id="x" aria-label="Next week">›</button></div>
+  <div id="rows"></div>
+</div>
+<script>
+// Set to null to always open on the current week
+var FIRST_WEEK = new Date(2026, 8, 28); // Mon 28 Sep 2026
+
+var DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function pad(n){return n<10?"0"+n:""+n;}
+function key(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function mondayOf(d){var m=new Date(d.getFullYear(),d.getMonth(),d.getDate());m.setDate(m.getDate()-((m.getDay()+6)%7));return m;}
+var start = FIRST_WEEK ? new Date(FIRST_WEEK) : mondayOf(new Date());
+var data = {};
+try{data=JSON.parse(localStorage.getItem("miniweek")||"{}");}catch(e){data={};}
+function save(){try{localStorage.setItem("miniweek",JSON.stringify(data));}catch(e){}}
+var editing = null; // {k, id|null}
+
+function openForm(k,id){editing={k:k,id:id||null};render();}
+function commit(k,time,title){
+  title=title.trim();
+  if(editing&&editing.id){data[k]=(data[k]||[]).filter(function(e){return e.id!==editing.id;});}
+  if(title){(data[k]=data[k]||[]).push({id:Date.now()+"",time:time,title:title});}
+  if(data[k]&&!data[k].length)delete data[k];
+  editing=null;save();render();
+}
+function del(k,id){data[k]=data[k].filter(function(e){return e.id!==id;});if(!data[k].length)delete data[k];save();render();}
+
+function render(){
+  var rows=document.getElementById("rows");rows.innerHTML="";
+  var end=new Date(start);end.setDate(end.getDate()+6);
+  document.getElementById("t").textContent=start.getDate()+" "+MON[start.getMonth()]+" – "+end.getDate()+" "+MON[end.getMonth()];
+  var today=key(new Date()), focusEl=null;
+  for(var i=0;i<7;i++){
+    (function(i){
+      var d=new Date(start);d.setDate(start.getDate()+i);
+      var k=key(d);
+      var r=document.createElement("div");
+      r.className="r"+(k===today?" t":"")+(i>4?" e":"");
+      r.innerHTML='<span class="d">'+DAYS[i]+'</span><span class="n">'+d.getDate()+'</span>';
+      var ev=document.createElement("div");ev.className="ev";
+      var list=(data[k]||[]).slice().sort(function(a,b){return (a.time||"").localeCompare(b.time||"");});
+      if(!list.length&&!(editing&&editing.k===k)){var n=document.createElement("span");n.className="none";n.textContent="–";ev.appendChild(n);}
+      list.forEach(function(e){
+        if(editing&&editing.id===e.id)return;
+        var it=document.createElement("div");it.className="it";
+        var tm=document.createElement("span");tm.className="tm";tm.textContent=e.time||"All day";
+        var kk=document.createElement("span");kk.className="k";kk.textContent=e.title;
+        var x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Delete");
+        tm.onclick=kk.onclick=function(){openForm(k,e.id);};
+        x.onclick=function(){del(k,e.id);};
+        it.appendChild(tm);it.appendChild(kk);it.appendChild(x);ev.appendChild(it);
+      });
+      if(editing&&editing.k===k){
+        var cur=null;list.forEach(function(e){if(e.id===editing.id)cur=e;});
+        var f=document.createElement("div");f.className="f";
+        var ti=document.createElement("input");ti.type="time";ti.value=cur?cur.time:"";
+        var tx=document.createElement("input");tx.type="text";tx.placeholder="Meeting";tx.value=cur?cur.title:"";
+        function go(){commit(k,ti.value,tx.value);}
+        function onKey(ev2){if(ev2.key==="Enter")go();if(ev2.key==="Escape"){editing=null;render();}}
+        ti.onkeydown=tx.onkeydown=onKey;
+        f.appendChild(ti);f.appendChild(tx);ev.appendChild(f);focusEl=tx;
+      }
+      r.appendChild(ev);
+      var p=document.createElement("button");p.className="plus";p.textContent="+";p.setAttribute("aria-label","Add meeting");
+      p.onclick=function(){openForm(k,null);};
+      r.appendChild(p);rows.appendChild(r);
+    })(i);
+  }
+  if(focusEl)focusEl.focus();
+}
+document.getElementById("p").onclick=function(){editing=null;start.setDate(start.getDate()-7);render();};
+document.getElementById("x").onclick=function(){editing=null;start.setDate(start.getDate()+7);render();};
+render();
+</script>
+</body>
+</html>
